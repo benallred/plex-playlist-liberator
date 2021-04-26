@@ -17,13 +17,10 @@ param(
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
     [string]$MusicFolder)
 
-# param(
-#     [Parameter(Mandatory)][string]$Command,
-#     [Parameter(Mandatory)][string]$Destination)
-
-# .\plex-playlist-backup.ps1 -Backup -Destination C:\BenLocal\playlists\backup
-# .\plex-playlist-backup.ps1 -Sort
-# .\plex-playlist-backup.ps1 -ConvertToM3u -Source C:\BenLocal\playlists\Playlists -Destination C:\BenLocal\playlists\converted -MusicFolder $OneDrive\Music
+# .\plex-playlist-liberator.ps1 -Backup -Destination C:\BenLocal\playlists\backup
+# .\plex-playlist-liberator.ps1 -Sort
+# .\plex-playlist-liberator.ps1 -ConvertToM3u -Source C:\BenLocal\playlists\Playlists -Destination C:\BenLocal\playlists\converted -MusicFolder $OneDrive\Music
+# OneDrive\Music\ .wma
 
 $plexToken = ""
 
@@ -67,22 +64,23 @@ function BackupPlaylists($backupFolder) {
 #     }
 # }
 
-function ReplaceInvalidFileNameChars($string) {
+function ReplaceInvalidFileNameCharsForSearch($string) {
     [IO.Path]::GetInvalidFileNameChars() | % {
-        $string = $string.Replace($_, "-")
+        $string = $string.Replace($_, "*")
     }
     $string
 }
 
 function ConvertPlaylistToM3u($wplFilename) {
     Write-Output `t$($wplFilename.BaseName)
-    $playlist = Get-Content $wplFilename.FullName | Select-String "<media" | % { $_ -replace "^.*src=`"(.+?)`".*$", "`$1" }
+    $playlist = Get-Content $wplFilename | Select-String "<media" | % { $_ -replace "^.+src=`"(.+?)`".+$", "`$1" }
     if ($MusicFolder) {
         $playlist = $playlist | % {
             if ($_ -like "*<media*" -and
                 $_ -match "trackTitle=`"(?<title>.+?)`"" -and
-                ($foundFile = Get-ChildItem $MusicFolder "*$(ReplaceInvalidFileNameChars $Matches.title)*.mp3" -Recurse)) {
-                $foundFile.FullName
+                ($foundFile = Get-ChildItem $MusicFolder "*$(ReplaceInvalidFileNameCharsForSearch $Matches.title)*.mp3" -Recurse) -and
+                ($foundFile.Count -eq 1)) {
+                $foundFile
             }
             else {
                 $_
@@ -91,9 +89,7 @@ function ConvertPlaylistToM3u($wplFilename) {
     }
     $unparseable = $playlist | ? { $_ -like "*<media*" }
     if ($unparseable) {
-        Write-Output "`t`tSome lines could not be parsed - look for <media> lines in the destination files"
-        # Write-Output "`t`tThese lines could not be parsed"
-        # $unparseable | % { Write-Output `t`t$_ }
+        Write-Output "`t`tSome lines could not be parsed - look for <media> lines in the destination file"
     }
     Set-Content $Destination\$($wplFilename.BaseName).m3u $playlist
     # [IO.File]::WriteAllLines("$Destination\$($wplFilename.BaseName).m3u", $playlist)
