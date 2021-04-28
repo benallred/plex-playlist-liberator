@@ -10,6 +10,7 @@ param(
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 0)]
     [switch]$Sort,
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 1)]
+    [Parameter(ParameterSetName = "Sort", Mandatory, Position = 1)]
     [string]$Source,
     [Parameter(ParameterSetName = "Backup", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 2)]
@@ -19,7 +20,7 @@ param(
 
 # .\plex-playlist-liberator.ps1 -Backup -Destination C:\BenLocal\playlists\backup
 # .\plex-playlist-liberator.ps1 -Sort
-# .\plex-playlist-liberator.ps1 -ConvertToM3u -Source C:\BenLocal\playlists\Playlists -Destination C:\BenLocal\playlists\converted -MusicFolder $OneDrive\Music
+# .\plex-playlist-liberator.ps1 -Sort -Source C:\BenLocal\playlists\converted
 # OneDrive\Music\ .wma
 
 $plexToken = ""
@@ -92,7 +93,6 @@ function ConvertPlaylistToM3u($wplFilename) {
         Write-Output "`t`tSome lines could not be parsed - look for <media> lines in the destination file"
     }
     Set-Content $Destination\$($wplFilename.BaseName).m3u $playlist
-    # [IO.File]::WriteAllLines("$Destination\$($wplFilename.BaseName).m3u", $playlist)
 }
 
 function ConvertPlaylistsToM3u() {
@@ -101,9 +101,21 @@ function ConvertPlaylistsToM3u() {
     Get-ChildItem $Source *.wpl | % { ConvertPlaylistToM3u $_ }
 }
 
+function SortPlaylist($playlistFilename) {
+    Write-Output `t$($playlistFilename.BaseName)
+    Get-Content $playlistFilename |
+    sort |
+    Set-Content $playlistFilename
+}
+
+function SortPlaylists() {
+    Write-Output "Sorting $Source"
+    Get-ChildItem $Source *.m3u | % { SortPlaylist $_ }
+}
+
 if ($Backup) { BackupPlaylists $Destination }
 if ($ConvertToM3u) { ConvertPlaylistsToM3u }
-if ($Sort) { throw "Not implemented yet" }
+if ($Sort) { SortPlaylists }
 
 return
 
