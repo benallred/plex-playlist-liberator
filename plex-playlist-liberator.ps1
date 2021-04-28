@@ -1,27 +1,49 @@
 <#
+.Synopsis
+Provides functionality for managing playlists in m3u format and importing into/exporting from Plex.
 
+.Description
+Provides functionality for managing playlists in m3u format and importing into/exporting from Plex.
+
+.Example
+.\plex-playlist-liberator.ps1 -Backup -Destination $env:OneDrive\Music\Playlists\PlexBackup
+
+Export audio playlists from Plex and save .m3u files to the destination folder.
+
+.Example
+.\plex-playlist-liberator.ps1 -ConvertToM3u -Source $env:OneDrive\Music\Playlists -Destination $env:OneDrive\Music\Playlists\converted -MusicFolder $env:OneDrive\Music
+
+Convert the .wma playlists in the source folder to .m3u playlists and save to the destination folder.
+
+If any lines in the .wma files do not include a file path, the title will be used to look for a file with a matching name in the specified music folder.
+
+.Example
+.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists
+
+Sort the contents of the .m3u playlists in the specified folder and write them back in place.
 #>
 
 param(
+    # Export audio playlists from Plex
     [Parameter(ParameterSetName = "Backup", Mandatory, Position = 0)]
     [switch]$Backup,
+    # Convert .wma playlists to .m3u
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 0)]
     [switch]$ConvertToM3u,
+    # Sort playlists
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 0)]
     [switch]$Sort,
+    # The playlists folder to read from
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 1)]
     [string]$Source,
+    # The playlists folder to write to
     [Parameter(ParameterSetName = "Backup", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 2)]
     [string]$Destination,
+    # Where to look for music if file paths are missing in .wma playlists
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
     [string]$MusicFolder)
-
-# .\plex-playlist-liberator.ps1 -Backup -Destination C:\BenLocal\playlists\backup
-# .\plex-playlist-liberator.ps1 -Sort
-# .\plex-playlist-liberator.ps1 -Sort -Source C:\BenLocal\playlists\converted
-# OneDrive\Music\ .wma
 
 $plexToken = ""
 
