@@ -24,6 +24,9 @@ Sort the contents of the .m3u playlists in the specified folder and write them b
 #>
 
 param(
+    # Display usage
+    [Parameter(ParameterSetName = "Help", Position = 0)]
+    [switch]$Help,
     # Export audio playlists from Plex
     [Parameter(ParameterSetName = "Backup", Mandatory, Position = 0)]
     [switch]$Backup,
@@ -45,8 +48,8 @@ param(
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
     [string]$MusicFolder)
 
-if ((Get-Host).Version.Major -lt 6) {
-    Write-Error "Due to text encoding difficulties, it is highly recommended that you use PowerShell 6 or greater when running this script."
+if ((Get-Host).Version.Major -lt 7) {
+    Write-Error "This script requires PowerShell 7 or greater."
     exit
 }
 
@@ -115,7 +118,7 @@ function GetAccessToken() {
 
 function GetJson($route) {
     $trimmedRoute = $route.Trim('/')
-    $queryStringAppender = if ($route.Contains("?")) { "&" } else { "?" }
+    $queryStringAppender = $route.Contains("?") ? "&" : "?"
     $response = iwr "http://127.0.0.1:32400/${trimmedRoute}${queryStringAppender}X-Plex-Token=$plexToken" -Headers @{ "Accept" = "application/json" }
     $responseUtf8 = [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::GetEncoding(28591).GetBytes($response.Content))
     ConvertFrom-Json $responseUtf8
@@ -134,7 +137,7 @@ function BackupPlaylists($backupFolder) {
 function BackupPlaylist($metadata, $backupFolder) {
     Write-Output `t$($metadata.title)
     $playlist = GetJson $metadata.key
-    $files = if ($playlist.MediaContainer.Metadata.Media.Part.file) { $playlist.MediaContainer.Metadata.Media.Part.file } else { @("") }
+    $files = $playlist.MediaContainer.Metadata.Media.Part.file ?? @("")
     # Set-Content writes BOM in PS 5, which prevents Plex from importing the first line
     [IO.File]::WriteAllLines("$backupFolder\$($metadata.title).m3u", $files)
 }
@@ -195,6 +198,10 @@ function SortPlaylist($playlistFilename) {
 
 ##################################################
 # Run
+
+if ($PSCmdlet.ParameterSetName -eq "Help") {
+    Get-Help $PSCommandPath
+}
 
 if ($Backup) { BackupPlaylists $Destination }
 if ($ConvertToM3u) { ConvertPlaylistsToM3u }
