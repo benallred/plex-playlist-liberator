@@ -65,7 +65,7 @@ function GetAccessToken() {
     if (!(Test-Path $registryPath)) {
         New-Item $registryPath -Force | Out-Null
     }
-    $userAccessToken = Get-ItemProperty $registryPath -Name $registryPathAccessTokenKey -ErrorAction Ignore
+    $userAccessToken = Get-ItemPropertyValue $registryPath -Name $registryPathAccessTokenKey -ErrorAction Ignore
 
     try {
         $verifyAccessTokenResponse = iwr https://plex.tv/api/v2/user -Headers @{
@@ -73,7 +73,7 @@ function GetAccessToken() {
             "X-Plex-Product"           = $product
             "X-Plex-Client-Identifier" = $clientId
             "X-Plex-Token"             = $userAccessToken
-        } | ConvertFrom-Json
+        }
 
         if ($verifyAccessTokenResponse.StatusCode -eq 200) {
             return $userAccessToken
@@ -86,6 +86,8 @@ function GetAccessToken() {
     catch {
     }
 
+    Write-Host "Generating access token"
+
     $pinResponse = iwr https://plex.tv/api/v2/pins -Method Post -Headers @{
         "Accept"                   = "application/json"
         "strong"                   = "true"
@@ -93,7 +95,7 @@ function GetAccessToken() {
         "X-Plex-Client-Identifier" = $clientId
     } | ConvertFrom-Json
 
-    start "https://app.plex.tv/auth#?clientID=$clientId&code=$($pinResponse.code)&context%5Bdevice%5D%5Bproduct%5D=$product"
+    start "https://app.plex.tv/auth#?clientID=$clientId&code=$($pinResponse.code)&context%5Bdevice%5D%5Bproduct%5D=Plex Web"
 
     $animationCounter = 0
     $animationFrames = 5
@@ -105,15 +107,21 @@ function GetAccessToken() {
             Write-Host ("`b `b" * $animationFrames) -NoNewline
         }
         Write-Host . -NoNewline
-        sleep -s 1
-        $pinCheckResponse = iwr https://plex.tv/api/v2/pins/$($pinResponse.id) -Headers @{
-            "Accept"                   = "application/json"
-            "code"                     = $pinResponse.code
-            "X-Plex-Client-Identifier" = $clientId
-        } | ConvertFrom-Json
+        sleep -m 500
+        if ($animationCounter % $animationFrames -eq 0) {
+            $pinCheckResponse = iwr https://plex.tv/api/v2/pins/$($pinResponse.id) -Headers @{
+                "Accept"                   = "application/json"
+                "code"                     = $pinResponse.code
+                "X-Plex-Client-Identifier" = $clientId
+            } | ConvertFrom-Json
+        }
     } while (!$pinCheckResponse.authToken)
 
+    Write-Host
+
     Set-ItemProperty $registryPath -Name $registryPathAccessTokenKey -Value $pinCheckResponse.authToken
+
+    return $pinCheckResponse.authToken
 }
 
 function GetJson($route) {
