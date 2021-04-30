@@ -60,13 +60,8 @@ function GetJson($route) {
     ConvertFrom-Json $responseUtf8
 }
 
-function BackupPlaylist($metadata, $backupFolder) {
-    Write-Output `t$($metadata.title)
-    $playlist = GetJson $metadata.key
-    $files = if ($playlist.MediaContainer.Metadata.Media.Part.file) { $playlist.MediaContainer.Metadata.Media.Part.file } else { @("") }
-    # Set-Content writes BOM in PS 5, which prevents Plex from importing the first line
-    [IO.File]::WriteAllLines("$backupFolder\$($metadata.title).m3u", $files)
-}
+##################################################
+# Backup
 
 function BackupPlaylists($backupFolder) {
     Write-Output "Backing up to $backupFolder"
@@ -75,23 +70,21 @@ function BackupPlaylists($backupFolder) {
     $allPlaylistsResponse.MediaContainer.Metadata | % { BackupPlaylist $_ $backupFolder }
 }
 
-# function ConvertPlaylistToM3u($wplFilename) {
-#     Write-Output `t$($wplFilename.BaseName)
-#     $playlist = Get-Content $wplFilename.FullName | Select-String "<media" | % { $_ -replace "^.*src=`"(.+?)`".*$", "`$1" }
-#     Set-Content $Destination\$($wplFilename.BaseName).m3u $playlist
-#     $unparseable = $playlist | ? { $_ -like "*<media*" }
-#     if ($unparseable) {
-#         Write-Output "`t`tSome lines could not be parsed - look for <media> lines in the destination files"
-#         # Write-Output "`t`tThese lines could not be parsed"
-#         # $unparseable | % { Write-Output `t`t$_ }
-#     }
-# }
+function BackupPlaylist($metadata, $backupFolder) {
+    Write-Output `t$($metadata.title)
+    $playlist = GetJson $metadata.key
+    $files = if ($playlist.MediaContainer.Metadata.Media.Part.file) { $playlist.MediaContainer.Metadata.Media.Part.file } else { @("") }
+    # Set-Content writes BOM in PS 5, which prevents Plex from importing the first line
+    [IO.File]::WriteAllLines("$backupFolder\$($metadata.title).m3u", $files)
+}
 
-function ReplaceInvalidFileNameCharsForSearch($string) {
-    [IO.Path]::GetInvalidFileNameChars() | % {
-        $string = $string.Replace($_, "*")
-    }
-    $string
+##################################################
+# ConvertToM3u
+
+function ConvertPlaylistsToM3u() {
+    Write-Output "Converting to $Destination"
+    mkdir $Destination -Force | Out-Null
+    Get-ChildItem $Source *.wpl | % { ConvertPlaylistToM3u $_ }
 }
 
 function ConvertPlaylistToM3u($wplFilename) {
@@ -117,10 +110,19 @@ function ConvertPlaylistToM3u($wplFilename) {
     Set-Content $Destination\$($wplFilename.BaseName).m3u $playlist
 }
 
-function ConvertPlaylistsToM3u() {
-    Write-Output "Converting to $Destination"
-    mkdir $Destination -Force | Out-Null
-    Get-ChildItem $Source *.wpl | % { ConvertPlaylistToM3u $_ }
+function ReplaceInvalidFileNameCharsForSearch($string) {
+    [IO.Path]::GetInvalidFileNameChars() | % {
+        $string = $string.Replace($_, "*")
+    }
+    $string
+}
+
+##################################################
+# Sort
+
+function SortPlaylists() {
+    Write-Output "Sorting $Source"
+    Get-ChildItem $Source *.m3u | % { SortPlaylist $_ }
 }
 
 function SortPlaylist($playlistFilename) {
@@ -130,10 +132,8 @@ function SortPlaylist($playlistFilename) {
     Set-Content $playlistFilename
 }
 
-function SortPlaylists() {
-    Write-Output "Sorting $Source"
-    Get-ChildItem $Source *.m3u | % { SortPlaylist $_ }
-}
+##################################################
+# Run
 
 if ($Backup) { BackupPlaylists $Destination }
 if ($ConvertToM3u) { ConvertPlaylistsToM3u }
