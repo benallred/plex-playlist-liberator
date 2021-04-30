@@ -45,11 +45,72 @@ param(
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
     [string]$MusicFolder)
 
-$plexToken = ""
-
 if ((Get-Host).Version.Major -lt 6) {
     Write-Error "Due to text encoding difficulties, it is highly recommended that you use PowerShell 6 or greater when running this script."
     exit
+}
+
+##################################################
+# Plex helpers
+
+function GetAccessToken() {
+    $product = "PlexPlaylistLiberator"
+    $clientId = "PlexPlaylistLiberator-$env:ComputerName"
+
+    $registryPath = "HKCU:\Software\$product"
+    $registryPathAccessTokenKey = "AccessToken"
+    if (!(Test-Path $registryPath)) {
+        New-Item $registryPath -Force | Out-Null
+    }
+    $userAccessToken = Get-ItemProperty $registryPath -Name $registryPathAccessTokenKey -ErrorAction Ignore
+
+    try {
+        $verifyAccessTokenResponse = iwr https://plex.tv/api/v2/user -Headers @{
+            "Accept"                   = "application/json"
+            "X-Plex-Product"           = $product
+            "X-Plex-Client-Identifier" = $clientId
+            "X-Plex-Token"             = $userAccessToken
+        } | ConvertFrom-Json
+
+        if ($verifyAccessTokenResponse.StatusCode -eq 200) {
+            return $userAccessToken
+        }
+        else {
+            Write-Error "Unable to verify access token"
+            return
+        }
+    }
+    catch {
+    }
+
+    $pinResponse = iwr https://plex.tv/api/v2/pins -Method Post -Headers @{
+        "Accept"                   = "application/json"
+        "strong"                   = "true"
+        "X-Plex-Product"           = $product
+        "X-Plex-Client-Identifier" = $clientId
+    } | ConvertFrom-Json
+
+    start "https://app.plex.tv/auth#?clientID=$clientId&code=$($pinResponse.code)&context%5Bdevice%5D%5Bproduct%5D=$product"
+
+    $animationCounter = 0
+    $animationFrames = 5
+    Write-Host "Waiting for app approval...." -NoNewline
+
+    do {
+        $animationCounter++
+        if ($animationCounter % $animationFrames -eq 0) {
+            Write-Host ("`b `b" * $animationFrames) -NoNewline
+        }
+        Write-Host . -NoNewline
+        sleep -s 1
+        $pinCheckResponse = iwr https://plex.tv/api/v2/pins/$($pinResponse.id) -Headers @{
+            "Accept"                   = "application/json"
+            "code"                     = $pinResponse.code
+            "X-Plex-Client-Identifier" = $clientId
+        } | ConvertFrom-Json
+    } while (!$pinCheckResponse.authToken)
+
+    Set-ItemProperty $registryPath -Name $registryPathAccessTokenKey -Value $pinCheckResponse.authToken
 }
 
 function GetJson($route) {
