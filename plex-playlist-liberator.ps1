@@ -127,7 +127,7 @@ function GetAccessToken() {
 function GetJson($route) {
     $trimmedRoute = $route.Trim('/')
     $queryStringAppender = $route.Contains("?") ? "&" : "?"
-    $response = iwr "http://127.0.0.1:32400/${trimmedRoute}${queryStringAppender}X-Plex-Token=$plexToken" -Headers @{ "Accept" = "application/json" }
+    $response = iwr "http://127.0.0.1:32400/${trimmedRoute}${queryStringAppender}X-Plex-Token=$accessToken" -Headers @{ "Accept" = "application/json" }
     $responseUtf8 = [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::GetEncoding(28591).GetBytes($response.Content))
     ConvertFrom-Json $responseUtf8
 }
@@ -135,19 +135,19 @@ function GetJson($route) {
 ##################################################
 # Backup
 
-function BackupPlaylists($backupFolder) {
-    Write-Output "Backing up to $backupFolder"
-    mkdir $backupFolder -Force | Out-Null
+function BackupPlaylists() {
+    Write-Output "Backing up to $Destination"
+    mkdir $Destination -Force | Out-Null
     $allPlaylistsResponse = GetJson "playlists?playlistType=audio"
-    $allPlaylistsResponse.MediaContainer.Metadata | % { BackupPlaylist $_ $backupFolder }
+    $allPlaylistsResponse.MediaContainer.Metadata | % { BackupPlaylist $_ }
 }
 
-function BackupPlaylist($metadata, $backupFolder) {
+function BackupPlaylist($metadata) {
     Write-Output `t$($metadata.title)
     $playlist = GetJson $metadata.key
     $files = $playlist.MediaContainer.Metadata.Media.Part.file ?? @("")
     # Set-Content writes BOM in PS 5, which prevents Plex from importing the first line
-    [IO.File]::WriteAllLines("$backupFolder\$($metadata.title).m3u", $files)
+    [IO.File]::WriteAllLines("$Destination\$($metadata.title).m3u", $files)
 }
 
 ##################################################
@@ -211,9 +211,12 @@ if ($PSCmdlet.ParameterSetName -eq "Help") {
     Get-Help $PSCommandPath
 }
 
-if ($Backup) { BackupPlaylists $Destination }
 if ($ConvertToM3u) { ConvertPlaylistsToM3u }
 if ($Sort) { SortPlaylists }
+
+$accessToken = GetAccessToken
+
+if ($Backup) { BackupPlaylists }
 
 return
 
@@ -227,4 +230,4 @@ $playlistPath = "C:\BenLocal\playlists\BTest - Copy.m3u"
 $encodedPlaylistPath = $playlistPath
 # $encodedPlaylistPath = "$env:tmp\$(New-Guid).m3u"
 # Set-Content $encodedPlaylistPath (Get-Content $playlistPath | % { [System.Web.HttpUtility]::UrlEncode($_) })
-iwr "http://127.0.0.1:32400/playlists/upload?sectionID=$musicLibraryId&path=$encodedPlaylistPath&X-Plex-Token=$plexToken" -Method Post -Headers @{ "Accept" = "application/json" }
+iwr "http://127.0.0.1:32400/playlists/upload?sectionID=$musicLibraryId&path=$encodedPlaylistPath&X-Plex-Token=$accessToken" -Method Post -Headers @{ "Accept" = "application/json" }
