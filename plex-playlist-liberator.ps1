@@ -6,7 +6,7 @@ Provides functionality for managing playlists in m3u format and importing into/e
 Provides functionality for managing playlists in m3u format and importing into/exporting from Plex.
 
 .Example
-.\plex-playlist-liberator.ps1 -Backup -Destination $env:OneDrive\Music\Playlists\PlexBackup
+.\plex-playlist-liberator.ps1 -Export -Destination $env:OneDrive\Music\Playlists\PlexBackup
 
 Export audio playlists from Plex and save .m3u files to the destination folder.
 
@@ -28,8 +28,8 @@ param(
     [Parameter(ParameterSetName = "Help", Position = 0)]
     [switch]$Help,
     # Export audio playlists from Plex
-    [Parameter(ParameterSetName = "Backup", Mandatory, Position = 0)]
-    [switch]$Backup,
+    [Parameter(ParameterSetName = "Export", Mandatory, Position = 0)]
+    [switch]$Export,
     # Convert .wma playlists to .m3u
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 0)]
     [switch]$ConvertToM3u,
@@ -41,7 +41,7 @@ param(
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 1)]
     [string]$Source,
     # The playlists folder to write to
-    [Parameter(ParameterSetName = "Backup", Mandatory, Position = 1)]
+    [Parameter(ParameterSetName = "Export", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 2)]
     [string]$Destination,
     # Where to look for music if file paths are missing in .wma playlists
@@ -133,16 +133,16 @@ function GetJson($route) {
 }
 
 ##################################################
-# Backup
+# Export
 
-function BackupPlaylists() {
+function ExportPlaylists() {
     Write-Output "Backing up to $Destination"
     mkdir $Destination -Force | Out-Null
     $allPlaylistsResponse = GetJson "playlists?playlistType=audio"
-    $allPlaylistsResponse.MediaContainer.Metadata | % { BackupPlaylist $_ }
+    $allPlaylistsResponse.MediaContainer.Metadata | % { ExportPlaylist $_ }
 }
 
-function BackupPlaylist($metadata) {
+function ExportPlaylist($metadata) {
     Write-Output `t$($metadata.title)
     $playlist = GetJson $metadata.key
     $files = $playlist.MediaContainer.Metadata.Media.Part.file ?? @("")
@@ -216,7 +216,7 @@ if ($Sort) { SortPlaylists }
 
 $accessToken = GetAccessToken
 
-if ($Backup) { BackupPlaylists }
+if ($Export) { ExportPlaylists }
 
 return
 
