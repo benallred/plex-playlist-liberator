@@ -128,8 +128,7 @@ function GetJson($route) {
     $trimmedRoute = $route.Trim('/')
     $queryStringAppender = $route.Contains("?") ? "&" : "?"
     $response = iwr "http://127.0.0.1:32400/${trimmedRoute}${queryStringAppender}X-Plex-Token=$accessToken" -Headers @{ "Accept" = "application/json" }
-    $responseUtf8 = [System.Text.Encoding]::UTF8.GetString([System.Text.Encoding]::GetEncoding(28591).GetBytes($response.Content))
-    ConvertFrom-Json $responseUtf8
+    ConvertFrom-Json $response.Content
 }
 
 ##################################################
@@ -146,8 +145,7 @@ function ExportPlaylist($metadata) {
     Write-Output `t$($metadata.title)
     $playlist = GetJson $metadata.key
     $files = $playlist.MediaContainer.Metadata.Media.Part.file ?? @("")
-    # Set-Content writes BOM in PS 5, which prevents Plex from importing the first line
-    [IO.File]::WriteAllLines("$Destination\$($metadata.title).m3u", $files)
+    Set-Content $Destination\$($metadata.title).m3u $files
 }
 
 ##################################################
