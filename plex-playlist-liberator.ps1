@@ -11,6 +11,11 @@ Provides functionality for managing playlists in m3u format and importing into/e
 Export audio playlists from Plex and save .m3u files to the destination folder.
 
 .Example
+.\plex-playlist-liberator.ps1 -Import -Source $env:OneDrive\Music\Playlists
+
+Import audio playlists to Plex from .m3u files in the source folder.
+
+.Example
 .\plex-playlist-liberator.ps1 -ConvertToM3u -Source $env:OneDrive\Music\Playlists -Destination $env:OneDrive\Music\Playlists\converted -MusicFolder $env:OneDrive\Music
 
 Convert the .wma playlists in the source folder to .m3u playlists and save to the destination folder.
@@ -30,6 +35,9 @@ param(
     # Export audio playlists from Plex
     [Parameter(ParameterSetName = "Export", Mandatory, Position = 0)]
     [switch]$Export,
+    # Import audio playlists to Plex
+    [Parameter(ParameterSetName = "Import", Mandatory, Position = 0)]
+    [switch]$Import,
     # Convert .wma playlists to .m3u
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 0)]
     [switch]$ConvertToM3u,
@@ -37,6 +45,7 @@ param(
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 0)]
     [switch]$Sort,
     # The playlists folder to read from
+    [Parameter(ParameterSetName = "Import", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 1)]
     [string]$Source,
@@ -149,6 +158,51 @@ function ExportPlaylist($metadata) {
 }
 
 ##################################################
+# Import
+
+function ImportPlaylists() {
+    Write-Output "Importing to Plex from $Source"
+
+    $libraries = GetJson library/sections
+    $musicLibraryId = $libraries.MediaContainer.Directory |
+    ? { $_.type -eq "artist" -and $_.Location.path -ilike "*music*" } |
+    select -exp key
+
+    if ($musicLibraryId.Count -gt 1) {
+        throw "Found multiple music libraries in Plex. Not sure where to import."
+    }
+
+    if ($musicLibraryId.Count -lt 1) {
+        throw "Could not find a music library in Plex. Not sure where to import."
+    }
+
+    Get-ChildItem $Source *.m3u | % { ImportPlaylist $_ $musicLibraryId }
+}
+
+function ImportPlaylist($playlistFilename, $musicLibraryId) {
+    Write-Output `t$($playlistFilename.BaseName)
+    $importResponse = iwr "http://127.0.0.1:32400/playlists/upload?sectionID=$musicLibraryId&path=$playlistFilename&X-Plex-Token=$accessToken" -Method Post -Headers @{ "Accept" = "application/json" }
+    ValidateImport $playlistFilename
+}
+
+function ValidateImport($playlistFilename) {
+    $sourcePlaylistFiles = Get-Content $playlistFilename
+    $sourceItemCount = $sourcePlaylistFiles | measure -Line | select -exp Lines
+
+    $importedPlaylist = GetJson (GetJson "playlists?title=$($playlistFilename.BaseName)").MediaContainer.Metadata[0].key
+    $importedPlaylistFiles = $importedPlaylist.MediaContainer.Metadata.Media.Part.file ?? @("")
+    $importedItemCount = $importedPlaylistFiles | measure -Line | select -exp Lines
+
+    if ($sourceItemCount -ne $importedItemCount) {
+        Write-Output "Source item count:   $sourceItemCount"
+        Write-Output "Imported item count: $importedItemCount"
+        Write-Output "Missing files:"
+        Write-Output ($sourcePlaylistFiles | ? { $importedPlaylistFiles -notcontains $_ })
+        throw "Imported file count does not match source file count"
+    }
+}
+
+##################################################
 # ConvertToM3u
 
 function ConvertPlaylistsToM3u() {
@@ -215,17 +269,4 @@ if ($Sort) { SortPlaylists }
 $accessToken = GetAccessToken
 
 if ($Export) { ExportPlaylists }
-
-return
-
-
-
-
-
-$musicLibraryId = ((GetJson library/sections).MediaContainer.Directory | ? { $_.Location.path -contains "$OneDrive\Music" }).key
-
-$playlistPath = "C:\BenLocal\playlists\BTest - Copy.m3u"
-$encodedPlaylistPath = $playlistPath
-# $encodedPlaylistPath = "$env:tmp\$(New-Guid).m3u"
-# Set-Content $encodedPlaylistPath (Get-Content $playlistPath | % { [System.Web.HttpUtility]::UrlEncode($_) })
-iwr "http://127.0.0.1:32400/playlists/upload?sectionID=$musicLibraryId&path=$encodedPlaylistPath&X-Plex-Token=$accessToken" -Method Post -Headers @{ "Accept" = "application/json" }
+if ($Import) { ImportPlaylists }
