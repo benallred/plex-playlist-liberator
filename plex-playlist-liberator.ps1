@@ -266,7 +266,9 @@ if ($PSCmdlet.ParameterSetName -eq "Help") {
 if ($ConvertToM3u) { ConvertPlaylistsToM3u }
 if ($Sort) { SortPlaylists }
 
-$accessToken = GetAccessToken
+if ($Export -or $Import) {
+    $accessToken = GetAccessToken
 
-if ($Export) { ExportPlaylists }
-if ($Import) { ImportPlaylists }
+    if ($Export) { ExportPlaylists }
+    if ($Import) { ImportPlaylists }
+}
