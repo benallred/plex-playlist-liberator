@@ -26,6 +26,11 @@ If any lines in the .wma files do not include a file path, the title will be use
 .\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists
 
 Sort the contents of the .m3u playlists in the specified folder and write them back in place.
+
+.Example
+.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music
+
+Scan the music files in the specified music folder and report any that are not part of a playlist.
 #>
 
 param(
@@ -44,10 +49,14 @@ param(
     # Sort playlists
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 0)]
     [switch]$Sort,
+    # Scan music for files not in a playlist
+    [Parameter(ParameterSetName = "ScanForOrphans", Mandatory, Position = 0)]
+    [switch]$ScanForOrphans,
     # The playlists folder to read from
     [Parameter(ParameterSetName = "Import", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "ConvertToM3u", Mandatory, Position = 1)]
     [Parameter(ParameterSetName = "Sort", Mandatory, Position = 1)]
+    [Parameter(ParameterSetName = "ScanForOrphans", Mandatory, Position = 1)]
     [string]$Source,
     # The playlists folder to write to
     [Parameter(ParameterSetName = "Export", Mandatory, Position = 1)]
@@ -55,6 +64,7 @@ param(
     [string]$Destination,
     # Where to look for music if file paths are missing in .wma playlists
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
+    [Parameter(ParameterSetName = "ScanForOrphans", Mandatory, Position = 2)]
     [string]$MusicFolder)
 
 if ((Get-Host).Version.Major -lt 7) {
@@ -144,7 +154,7 @@ function GetJson($route) {
 # Export
 
 function ExportPlaylists() {
-    Write-Output "Backing up to $Destination"
+    Write-Output "Exporting to $Destination"
     mkdir $Destination -Force | Out-Null
     $allPlaylistsResponse = GetJson "playlists?playlistType=audio"
     $allPlaylistsResponse.MediaContainer.Metadata | % { ExportPlaylist $_ }
@@ -257,6 +267,25 @@ function SortPlaylist($playlistFilename) {
 }
 
 ##################################################
+# ScanForOrphans
+
+function ScanForOrphans() {
+    Write-Output "Scanning $MusicFolder for orphans"
+    $filesInPlaylist = GetAllPlaylistItems
+    $all = GetAllMusicFiles
+    $notInPlaylist = $all | ? { $filesInPlaylist -notcontains $_ }
+    Write-Output $notInPlaylist
+}
+
+function GetAllPlaylistItems() {
+    Get-Content $Source\*.m3u
+}
+
+function GetAllMusicFiles() {
+    Get-ChildItem $MusicFolder -Recurse -File -Exclude *.jpg, *.txt, *.png, *.gif, *.pdf, *.wpl, *.m3u, *.pdn, *.zip | select -exp FullName
+}
+
+##################################################
 # Run
 
 if ($PSCmdlet.ParameterSetName -eq "Help") {
@@ -265,6 +294,7 @@ if ($PSCmdlet.ParameterSetName -eq "Help") {
 
 if ($ConvertToM3u) { ConvertPlaylistsToM3u }
 if ($Sort) { SortPlaylists }
+if ($ScanForOrphans) { ScanForOrphans }
 
 if ($Export -or $Import) {
     $accessToken = GetAccessToken
