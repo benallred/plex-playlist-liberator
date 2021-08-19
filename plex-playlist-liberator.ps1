@@ -28,7 +28,8 @@ If any lines in the .wma files do not include a file path, the title will be use
 Sort the contents of the .m3u playlists in the specified folder and write them back in place.
 
 .Example
-.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music
+.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music -Include *.mp3, *.ogg
+.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music -Exclude *.jpg, *.txt
 
 Scan the music files in the specified music folder and report any that are not part of a playlist.
 #>
@@ -65,7 +66,11 @@ param(
     # Where to look for music if file paths are missing in .wma playlists
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
     [Parameter(ParameterSetName = "ScanForOrphans", Mandatory, Position = 2)]
-    [string]$MusicFolder)
+    [string]$MusicFolder,
+    [Parameter(ParameterSetName = "ScanForOrphans", Position = 3)]
+    [string[]]$Include,
+    [Parameter(ParameterSetName = "ScanForOrphans", Position = 4)]
+    [string[]]$Exclude)
 
 if ((Get-Host).Version.Major -lt 7) {
     Write-Error "This script requires PowerShell 7 or greater."
@@ -282,7 +287,7 @@ function GetAllPlaylistItems() {
 }
 
 function GetAllMusicFiles() {
-    Get-ChildItem $MusicFolder -Recurse -File -Exclude *.jpg, *.txt, *.png, *.gif, *.pdf, *.wpl, *.m3u, *.pdn, *.zip | select -exp FullName
+    Get-ChildItem $MusicFolder -Recurse -File -Include $Include -Exclude $Exclude | select -exp FullName
 }
 
 ##################################################

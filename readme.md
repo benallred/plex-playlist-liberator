@@ -39,5 +39,6 @@ Sort the contents of the .m3u playlists in the specified folder and write them b
 Scan the music files in the specified music folder and report any that are not part of a playlist.
 
 ```powershell
-.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music
+.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music -Include *.mp3, *.ogg
+.\plex-playlist-liberator.ps1 -ScanForOrphans -Source $env:OneDrive\Music\Playlists -MusicFolder $env:OneDrive\Music -Exclude *.jpg, *.txt
 ```
