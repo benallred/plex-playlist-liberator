@@ -23,7 +23,8 @@ Convert the .wma playlists in the source folder to .m3u playlists and save to th
 If any lines in the .wma files do not include a file path, the title will be used to look for a file with a matching name in the specified music folder.
 
 .Example
-.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists
+.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists -Include OnlyThisOne*.m3u
+.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists -Exclude NotThisOne*
 
 Sort the contents of the .m3u playlists in the specified folder and write them back in place.
 
@@ -67,8 +68,10 @@ param(
     [Parameter(ParameterSetName = "ConvertToM3u", Position = 3)]
     [Parameter(ParameterSetName = "ScanForOrphans", Mandatory, Position = 2)]
     [string]$MusicFolder,
+    [Parameter(ParameterSetName = "Sort", Position = 2)]
     [Parameter(ParameterSetName = "ScanForOrphans", Position = 3)]
     [string[]]$Include,
+    [Parameter(ParameterSetName = "Sort", Position = 3)]
     [Parameter(ParameterSetName = "ScanForOrphans", Position = 4)]
     [string[]]$Exclude)
 
@@ -261,7 +264,7 @@ function ReplaceInvalidFileNameCharsForSearch($string) {
 
 function SortPlaylists() {
     Write-Output "Sorting $Source"
-    Get-ChildItem $Source *.m3u | % { SortPlaylist $_ }
+    Get-ChildItem (Join-Path $Source *) -Include ($Include ?? "*.m3u") -Exclude $Exclude | % { SortPlaylist $_ }
 }
 
 function SortPlaylist($playlistFilename) {
@@ -287,7 +290,7 @@ function GetAllPlaylistItems() {
 }
 
 function GetAllMusicFiles() {
-    Get-ChildItem $MusicFolder -Recurse -File -Include $Include -Exclude $Exclude | select -exp FullName
+    Get-ChildItem (Join-Path $MusicFolder *) -Recurse -File -Include $Include -Exclude $Exclude | select -exp FullName
 }
 
 ##################################################

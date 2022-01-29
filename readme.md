@@ -33,7 +33,8 @@ If any lines in the .wma files do not include a file path, the title will be use
 Sort the contents of the .m3u playlists in the specified folder and write them back in place.
 
 ```powershell
-.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists
+.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists -Include OnlyThisOne*.m3u
+.\plex-playlist-liberator.ps1 -Sort -Source $env:OneDrive\Music\Playlists -Exclude NotThisOne*
 ```
 
 Scan the music files in the specified music folder and report any that are not part of a playlist.
