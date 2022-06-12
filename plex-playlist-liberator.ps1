@@ -212,11 +212,13 @@ function ValidateImport($playlistFilename) {
     $importedItemCount = $importedPlaylistFiles | measure -Line | select -exp Lines
 
     if ($sourceItemCount -ne $importedItemCount) {
-        Write-Output "Source item count:   $sourceItemCount"
-        Write-Output "Imported item count: $importedItemCount"
-        Write-Output "Missing files:"
-        Write-Output ($sourcePlaylistFiles | ? { $importedPlaylistFiles -notcontains $_ })
-        throw "Imported file count does not match source file count"
+        Write-Output "`t`tSource item count:   $sourceItemCount"
+        Write-Output "`t`tImported item count: $importedItemCount"
+        Write-Output "`t`tMissing files:"
+        Write-Output ($sourcePlaylistFiles | ? { $importedPlaylistFiles -notcontains $_ } | % { "`t`t`t$_" })
+        $importedPlaylistTmpPath = "$env:tmp\$(New-Guid).txt"
+        Set-Content $importedPlaylistTmpPath (ConvertTo-Json $importedPlaylist -Depth 100)
+        throw "Imported file count does not match source file count. Imported file: $importedPlaylistTmpPath"
     }
 }
 
